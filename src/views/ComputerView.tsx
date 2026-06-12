@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useBroadcastChannel } from '../hooks/useBroadcastChannel';
 import { JumpGame } from '../components/JumpGame';
+import { StickFightGame } from '../components/StickFightGame';
 import { PoseDetector, PoseResult } from '../utils/poseDetection';
 import { MovementAnalyzer, MovementType, movementToKeyMap } from '../utils/movementAnalyzer';
 import {
@@ -14,9 +15,12 @@ import {
   Wifi,
   WifiOff,
   VolumeX,
+  Swords,
+  Gamepad2,
 } from 'lucide-react';
 
 type ViewMode = 'game' | 'pose-view' | 'both';
+type GameMode = 'jump-dash' | 'mk9';
 
 export default function ComputerView() {
   const receivedCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -28,6 +32,7 @@ export default function ComputerView() {
   const [isReceiving, setIsReceiving] = useState(false);
   const [currentMovement, setCurrentMovement] = useState<MovementType>('idle');
   const [viewMode, setViewMode] = useState<ViewMode>('both');
+  const [gameMode, setGameMode] = useState<GameMode>('mk9');
   const [score, setScore] = useState(0);
   const [gameActive, setGameActive] = useState(true);
   const [isCalibrated, setIsCalibrated] = useState(false);
@@ -70,7 +75,6 @@ export default function ComputerView() {
       receivedHeightRef.current = height;
       setIsReceiving(true);
 
-      // FPS counting
       fpsCountersRef.current.receiveFrames++;
       const now = performance.now();
       if (now - fpsCountersRef.current.lastTime >= 1000) {
@@ -106,7 +110,6 @@ export default function ComputerView() {
       return;
     }
 
-    // Draw received frame
     const img = new Image();
     img.src = lastFrameRef.current;
     await img.decode();
@@ -117,23 +120,19 @@ export default function ComputerView() {
     overlay.height = img.height;
     ctx.drawImage(img, 0, 0);
 
-    // Pose detection
     const poseResult = await poseDetectorRef.current.detect(canvas);
     if (poseResult) {
       setDetectedPose(poseResult);
 
-      // Analyze movement
       const movementState = movementAnalyzerRef.current?.analyze(poseResult);
       if (movementState) {
         setCurrentMovement(movementState.type);
 
-        // Send to presentation
         if (presentationConnection && presentationConnection.state === 'connected') {
           presentationConnection.send(JSON.stringify({ type: 'movement', movement: movementState.type }));
         }
       }
 
-      // FPS counting
       fpsCountersRef.current.poseFrames++;
     }
 
@@ -150,21 +149,17 @@ export default function ComputerView() {
     };
   }, [isReceiving, processFrame]);
 
-  // Calibrate
   const calibrate = useCallback(() => {
     if (!detectedPose || !movementAnalyzerRef.current) return;
-
     movementAnalyzerRef.current.resetBaseline();
     movementAnalyzerRef.current.calibrate(detectedPose);
     setIsCalibrated(true);
   }, [detectedPose]);
 
-  // Send game state to TV
   useEffect(() => {
     sendMessage('game-state', { score, movement: currentMovement });
   }, [score, currentMovement, sendMessage]);
 
-  // Presentation API for TV casting
   const startPresentation = useCallback(async () => {
     if (!navigator.presentation) {
       alert('Presentation API not supported. Try using Chrome on a device that supports casting.');
@@ -186,8 +181,9 @@ export default function ComputerView() {
         setShowPresentation(false);
       };
 
-      connection.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+      connection.onmessage = (event: Event) => {
+        const msg = event as MessageEvent;
+        const data = JSON.parse(msg.data);
         if (data.type === 'ready') {
           console.log('TV ready');
         }
@@ -207,7 +203,6 @@ export default function ComputerView() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex">
-      {/* Main Game Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <header className="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-700">
@@ -219,12 +214,34 @@ export default function ComputerView() {
               ) : (
                 <WifiOff className="w-4 h-4 text-slate-500" />
               )}
-              <span>{isReceiving ? 'Connected' : 'Waiting for phone...'}</span>
+              <span>{isReceiving ? 'Phone connected' : 'Waiting for phone...'}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            {/* View Mode Toggle */}
+          <div className="flex items-center gap-3">
+            {/* Game selector */}
+            <div className="flex items-center bg-slate-700 rounded-lg p-1">
+              <button
+                onClick={() => setGameMode('mk9')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                  gameMode === 'mk9' ? 'bg-red-600 text-white' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <Swords className="w-4 h-4" />
+                MK9 Fight
+              </button>
+              <button
+                onClick={() => setGameMode('jump-dash')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                  gameMode === 'jump-dash' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <Gamepad2 className="w-4 h-4" />
+                Jump Dash
+              </button>
+            </div>
+
+            {/* View mode */}
             <div className="flex items-center bg-slate-700 rounded-lg p-1">
               {(['game', 'both', 'pose-view'] as ViewMode[]).map((mode) => (
                 <button
@@ -241,63 +258,56 @@ export default function ComputerView() {
               ))}
             </div>
 
-            {/* Score */}
-            {viewMode !== 'pose-view' && (
+            {/* Score (jump dash only) */}
+            {viewMode !== 'pose-view' && gameMode === 'jump-dash' && (
               <div className="flex items-center gap-2 bg-slate-700 rounded-lg px-4 py-2">
                 <Activity className="w-5 h-5 text-cyan-400" />
                 <span className="text-lg font-bold">{score}</span>
               </div>
             )}
 
-            {/* Presentation */}
+            {/* Cast */}
             <button
               onClick={showPresentation ? endPresentation : startPresentation}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                showPresentation
-                  ? 'bg-red-500 hover:bg-red-600'
-                  : 'bg-orange-500 hover:bg-orange-600'
+                showPresentation ? 'bg-red-500 hover:bg-red-600' : 'bg-orange-500 hover:bg-orange-600'
               }`}
             >
               <Tv className="w-5 h-5" />
-              <span>{showPresentation ? 'End Cast' : 'Cast to TV'}</span>
+              {showPresentation ? 'End Cast' : 'Cast to TV'}
             </button>
           </div>
         </header>
 
         {/* Content */}
-        <div className="flex-1 flex">
-          {/* Game View */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Game panel */}
           {(viewMode === 'game' || viewMode === 'both') && (
-            <div className={`${viewMode === 'both' ? 'w-1/2' : 'w-full'} p-4 flex flex-col`}>
-              <JumpGame
-                movement={currentMovement}
-                isRunning={gameActive}
-                onScoreChange={setScore}
-                onGameOver={() => setGameActive(false)}
-              />
+            <div className={`${viewMode === 'both' ? 'w-1/2' : 'w-full'} flex flex-col`}>
+              {gameMode === 'mk9' ? (
+                <StickFightGame movement={currentMovement} isRunning={gameActive} />
+              ) : (
+                <div className="flex-1 p-4">
+                  <JumpGame
+                    movement={currentMovement}
+                    isRunning={gameActive}
+                    onScoreChange={setScore}
+                    onGameOver={() => setGameActive(false)}
+                  />
+                </div>
+              )}
             </div>
           )}
 
-          {/* Camera View */}
+          {/* Camera / Pose panel */}
           {(viewMode === 'pose-view' || viewMode === 'both') && (
             <div className={`${viewMode === 'both' ? 'w-1/2' : 'w-full'} p-4 flex flex-col`}>
               <div className="relative flex-1 bg-slate-800 rounded-lg overflow-hidden">
-                {/* Received video */}
-                <canvas
-                  ref={receivedCanvasRef}
-                  className="absolute inset-0 w-full h-full object-contain"
-                />
+                <canvas ref={receivedCanvasRef} className="absolute inset-0 w-full h-full object-contain" />
+                <canvas ref={poseOverlayRef} className="absolute inset-0 w-full h-full object-contain" />
 
-                {/* Pose overlay */}
-                <canvas
-                  ref={poseOverlayRef}
-                  className="absolute inset-0 w-full h-full object-contain"
-                />
-
-                {/* Status overlay */}
                 <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start bg-gradient-to-b from-black/50 to-transparent">
                   <div className="flex flex-col gap-2">
-                    {/* Movement indicator */}
                     <div className="flex items-center gap-2">
                       <div
                         className={`w-3 h-3 rounded-full ${
@@ -309,41 +319,28 @@ export default function ComputerView() {
                       </span>
                       {movementToKeyMap[currentMovement] && (
                         <span className="text-xs text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">
-                          → {movementToKeyMap[currentMovement]}
+                          {movementToKeyMap[currentMovement]}
                         </span>
                       )}
                     </div>
-
-                    {/* Calibration status */}
                     <div className="flex items-center gap-2 text-sm">
-                      <Eye
-                        className={`w-4 h-4 ${
-                          isCalibrated ? 'text-green-400' : 'text-amber-400'
-                        }`}
-                      />
+                      <Eye className={`w-4 h-4 ${isCalibrated ? 'text-green-400' : 'text-amber-400'}`} />
                       <span className={isCalibrated ? 'text-green-400' : 'text-amber-400'}>
                         {isCalibrated ? 'Calibrated' : 'Not calibrated'}
                       </span>
                     </div>
                   </div>
-
-                  {/* FPS */}
                   <div className="flex gap-2 text-xs text-slate-400">
-                    <span className="bg-slate-700 px-2 py-1 rounded">
-                      Receive: {fps.receive} fps
-                    </span>
-                    <span className="bg-slate-700 px-2 py-1 rounded">
-                      Pose: {fps.pose} fps
-                    </span>
+                    <span className="bg-slate-700 px-2 py-1 rounded">{fps.receive} rx fps</span>
+                    <span className="bg-slate-700 px-2 py-1 rounded">{fps.pose} pose fps</span>
                   </div>
                 </div>
 
-                {/* Waiting message */}
                 {!isReceiving && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900">
                     <Camera className="w-16 h-16 text-slate-600 mb-4" />
-                    <p className="text-slate-400">
-                      Open Phone View on your mobile device to start streaming
+                    <p className="text-slate-400 text-center px-4">
+                      Open <strong>/phone</strong> on your mobile to stream camera
                     </p>
                   </div>
                 )}
@@ -352,9 +349,9 @@ export default function ComputerView() {
           )}
         </div>
 
-        {/* Footer Controls */}
+        {/* Footer */}
         <footer className="flex items-center justify-between px-4 py-3 bg-slate-800 border-t border-slate-700">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {!isCalibrated ? (
               <button
                 onClick={calibrate}
@@ -377,26 +374,24 @@ export default function ComputerView() {
               </button>
             )}
 
-            <button
-              onClick={() => setGameActive(!gameActive)}
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 rounded-lg transition-colors"
-            >
-              {gameActive ? (
-                <>
-                  <VolumeX className="w-5 h-5" />
-                  Pause
-                </>
-              ) : (
-                <>
-                  <Play className="w-5 h-5" />
-                  Resume
-                </>
-              )}
-            </button>
+            {gameMode === 'jump-dash' && (
+              <button
+                onClick={() => setGameActive(!gameActive)}
+                className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 rounded-lg transition-colors"
+              >
+                {gameActive ? (
+                  <><VolumeX className="w-5 h-5" /> Pause</>
+                ) : (
+                  <><Play className="w-5 h-5" /> Resume</>
+                )}
+              </button>
+            )}
           </div>
 
           <div className="text-sm text-slate-400">
-            Stand in camera view and calibrate before playing
+            {gameMode === 'mk9'
+              ? 'JUMP = Kick  |  CROUCH = Dodge  |  LEAN = Move  |  RAISE ARM = Punch'
+              : 'Stand in camera view, calibrate, then start playing'}
           </div>
         </footer>
       </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Smartphone, Monitor, Tv, Play, Zap, ArrowRight } from 'lucide-react';
+import { Smartphone, Monitor, Tv, Play, Zap, ArrowRight, Swords } from 'lucide-react';
 
 export default function HomeView() {
   const [gameCode] = useState(() => Math.random().toString(36).substring(2, 8).toUpperCase());
@@ -124,16 +124,56 @@ export default function HomeView() {
         {/* Games Available */}
         <div className="mt-16">
           <h2 className="text-2xl font-bold text-center mb-8">Available Games</h2>
-          <div className="flex justify-center gap-4">
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex items-center gap-4 max-w-xs">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-                <Play className="w-6 h-6 text-white" />
+          <div className="flex justify-center gap-6 flex-wrap">
+            {/* MK9 — featured */}
+            <div className="relative group bg-gradient-to-br from-red-900/40 to-slate-800/40 border-2 border-red-500/50 rounded-2xl p-5 flex items-center gap-5 hover:border-red-400 transition-all duration-300 hover:scale-105 cursor-pointer max-w-sm">
+              <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">NEW</div>
+              <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-red-700 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/30 flex-shrink-0">
+                <Swords className="w-7 h-7 text-white" />
               </div>
               <div>
-                <h4 className="font-semibold">Jump Dash</h4>
-                <p className="text-slate-400 text-xs">Jump to avoid obstacles</p>
+                <h4 className="font-bold text-lg text-white">MK9 Stick Fight</h4>
+                <p className="text-slate-400 text-sm mt-0.5">
+                  Red vs Blue stickman brawl. Jump to kick, crouch to dodge, lean to move!
+                </p>
+                <div className="flex gap-2 mt-2">
+                  {['KICK', 'DODGE', 'PUNCH'].map(tag => (
+                    <span key={tag} className="text-xs bg-red-500/20 border border-red-500/30 text-red-300 px-2 py-0.5 rounded">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
+
+            {/* Jump Dash */}
+            <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-5 flex items-center gap-5 max-w-sm hover:border-cyan-500/50 transition-all duration-300">
+              <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Play className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h4 className="font-bold text-lg text-white">Jump Dash</h4>
+                <p className="text-slate-400 text-sm mt-0.5">Endless runner — jump to clear obstacles</p>
+                <div className="flex gap-2 mt-2">
+                  {['JUMP', 'CROUCH'].map(tag => (
+                    <span key={tag} className="text-xs bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center mt-6">
+            <a
+              href="/computer"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-bold rounded-xl shadow-lg shadow-red-500/20 transition-all hover:scale-105"
+            >
+              <Swords className="w-5 h-5" />
+              Play Now
+              <ArrowRight className="w-5 h-5" />
+            </a>
           </div>
         </div>
       </div>
