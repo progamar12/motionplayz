@@ -285,7 +285,7 @@ export default function ComputerView() {
           {(viewMode === 'game' || viewMode === 'both') && (
             <div className={`${viewMode === 'both' ? 'w-1/2' : 'w-full'} flex flex-col`}>
               {gameMode === 'mk9' ? (
-                <StickFightGame movement={currentMovement} isRunning={gameActive} />
+                <StickFightGame movement={currentMovement} poseData={detectedPose} isRunning={gameActive} />
               ) : (
                 <div className="flex-1 p-4">
                   <JumpGame
